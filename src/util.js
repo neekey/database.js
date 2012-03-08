@@ -137,8 +137,44 @@
             }
 
             return result;
-        }
+        },
 
+        /**
+         * 对数组进行排序
+         * @param {Array} arr 需要进行排序的数组 注意，排序将修改数组本身
+         * @param {String} type 排序类型 asc|desc
+         * @param {Function} getValue 用于获取比较值的方法
+         * @return {Array}
+         */
+        sort: function( arr, type, getValue ){
+
+            arr.sort(function( a, b ){
+
+                var valueA;
+                var valueB;
+
+                if( typeof getValue === 'function' ){
+
+                    valueA = getValue( a );
+                    valueB = getValue( b );
+                }
+                else {
+
+                    valueA = a;
+                    valueB = b;
+                }
+
+                switch( type.toLowerCase() ){
+
+                    case 'asc':
+                        return valueA - valueB;
+                    case 'desc':
+                        return valueB - valueA;
+                }
+            });
+
+            return arr;
+        }
     };
 
 })( window );
