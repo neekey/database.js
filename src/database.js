@@ -69,12 +69,13 @@
 
             var newTable = new LocalStorage.tableItem( this.get( 'name' ), name, fields );
 
+            // 建立冗余数据表
+            newTable._createRedundancyTable();
             newTable.save();
 
             tables[ name ] = {
                 name: name
             };
-
 
             this.set( { length: this.get( 'length' ) + 1 } );
             this.save();
@@ -94,6 +95,9 @@
             var newTable = new LocalStorage.tableItem( this.get( 'name' ), name );
 
             newTable.fetch();
+
+            // fetch冗余表数据
+            newTable._fetchRedundancyTable();
 
             return newTable;
         },

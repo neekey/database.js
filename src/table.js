@@ -12,11 +12,15 @@
         var key = TableItem.getTableKey( dbName, name );
 
         Item.call( this, key, {
+            dbName: dbName,
             name: name,
             length: 0,
             data: [],
             fields: fields
         });
+
+        this.fieldHash = this._buildFieldHash();
+        //this.redundancyTable = this._createRedundancyTable();
     };
 
     Util.mix( TableItem, {
@@ -34,21 +38,6 @@
                 nameConfig.tablePrefix + '-' +
                 String( dbname ) + '-' +
                 String( name );
-
-            return key;
-        },
-
-        /**
-         * 构造冗余表的key
-         * @param dbname
-         * @param tableName
-         * @param fieldName
-         * @return {String}
-         */
-        getRedundancyTableKey: function( dbname, tableName, fieldName ){
-
-            var key = this.getTableKey( dbname, tableName );
-            key += ( '-' + fieldName );
 
             return key;
         },
@@ -149,12 +138,39 @@
 
     Util.mix( TableItem.prototype, Item.prototype );
     Util.mix( TableItem.prototype, {
-        insert: function( newData ){
+
+        fetch: function(){
+
+            var data = LS.getItem( this.key );
+
+            if( data ){
+
+                this.data = JSON.parse( data );
+            }
+
+            this._buildFieldHash();
+        },
+
+        insert: function(){
+
+            var newData = this.insert.apply( this, arguments );
+
+            return newData.data;
+        },
+
+        /**
+         * 插入数据
+         * @param {Array|Object} newData [ 'neekey', 'male' ] | { name: 'neekey', sex: 'male' }
+         * @return {Number} 新插入的数据索引
+         * @private
+         */
+        _insert: function( newData ){
 
             var data;
             var fields = this.get( 'fields' );
             var field;
             var index;
+            var newIndex;
             var TableData = this.get( 'data' );
 
             // 若为数组，则按照fields的顺序对应
@@ -179,23 +195,107 @@
             });
 
             this.save();
-        },
-        remove: function( ){
 
-        },
-        update: function(){
+            newIndex = this.get( 'length' ) - 1;
 
+            // 想冗余表中添加数据
+            this._insertRedundancyItem( newIndex, data );
+
+            return {
+                index: newIndex,
+                data: data
+            };
         },
+
         /**
-         * 对表中的数据进行检索
+         * 根据条件删除数据
+         * @param condition
+         * @return {Number} 返回被删除的数据条数
+         */
+        remove: function( condition ){
+
+            var result = this._query( condition );
+            var resultLen = result.length;
+            var index;
+            var item;
+            var data = this.get( 'data' );
+            var dataLen = this.get( 'length' );
+            var itemIndex;
+
+            for( index = 0; item = result[ index ]; index++ ){
+
+                itemIndex = item.index;
+
+                delete data[ itemIndex ];
+                dataLen--;
+
+                this._removeRedundancyItem( itemIndex );
+            }
+
+            this.set( {
+                data: data,
+                length: dataLen
+            });
+
+            this.save();
+
+            return resultLen;
+        },
+
+
+        update: function( condition, updateObj ){
+
+            var result = this._query( condition );
+            var fieldHash = this.get( 'fieldHash' );
+            var data = this.get( 'data' );
+            var dataItem;
+            var field;
+            var item;
+            var index;
+
+            for( index = 0; item = result[ index ]; index++ ){
+
+                dataItem = data[ item.index ];
+
+                for( field in updateObj ){
+
+                    dataItem[ fieldHash[ field ] ] = updateObj[ field ];
+                }
+
+                this._updateRedundancyItem( index, updateObj );
+            }
+
+            this.set( 'data', data );
+
+            this.save();
+        },
+
+        query: function(){
+
+            var _result = this._query.apply( this, arguments );
+            var result = [];
+            var index;
+            var item;
+
+            for( index = 0; item = _result[ index ]; index++ ){
+
+                result.push( item.data );
+            }
+
+            return result;
+        },
+
+        /**
+         * 对表中的数据进行检索，返回数据 + 数据对应在表中的索引值
          * @param {Object} condition {
          *      'field1': '>= 13',
          *      'field2': '*= 你好'
          * }
          * @param {String} order 对结果进行排序 'desc fieldName'
-         * @return {Array}
+         * @return {Array} [ { index: 13, data: .. }, { .. }, .. ]
+         * @private
          */
-        query: function( condition, order ){
+        _query: function( condition, order ){
             var key;
             var value;
             var index;
@@ -234,7 +334,10 @@
 
                 if( valid === true ){
 
-                    result.push( item );
+                    result.push( {
+                        index: index,
+                        data: item
+                    } );
                 }
             }
 
@@ -249,6 +352,155 @@
             }
 
             return result;
+        },
+
+        /**
+         * 建立field -> 数据index 的hax表
+         * @return {Object}
+         * @private
+         */
+        _buildFieldHash: function(){
+
+            var index;
+            var fields = this.get( 'fields' );
+            var fieldHash = {};
+
+            if( fields ){
+                for( index = 0; field = fields[ index ]; index++ ){
+
+                    fieldHash[ field ] = index;
+                }
+
+                return this.fieldHash = fieldHash;
+            }
+        },
+
+        /**
+         * 为所有字段都穿件冗余表，该方法只有在新建表的时候被调用
+         * @return {Object}
+         * @private
+         */
+        _createRedundancyTable: function( ){
+
+            if( !this.redundancyTable ){
+
+                this.redundancyTable = {};
+            }
+
+            var fields = this.get( 'fields' );
+            var dbName = this.get( 'dbName' );
+            var tableName = this.get( 'name' );
+            var data;
+            var field;
+            var index;
+            var RedundancyTable = LocalStorage.redundancyTableItem;
+
+            for( index = 0; field = fields[ index ]; index++ ){
+
+//                data = this._buildRedundancyData( field );
+                this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
+                this.redundancyTable[ field ].save();
+            }
+
+            return this.redundancyTable;
+        },
+
+        _buildRedundancyData: function( field ){
+
+            var fieldIndex = this.fieldHash[ field ];
+            var tableData = this.get( 'data' );
+            var data = [];
+            var item;
+            var index;
+
+            for( index = 0; item = tableData[ index ]; index++ ){
+
+                data.push( [ index, item[ fieldIndex ] ] );
+            }
+
+            return data;
+        },
+
+        /**
+         * 获取到存储在localStorage中的数据
+         * 遍历表的所有字段，已经建立了冗余表的，则直接fetch，否则新建表，并fetch
+         * @private
+         */
+        _fetchRedundancyTable: function(){
+
+            var fields = this.get( 'fields' );
+            var dbName = this.get( 'dbName' );
+            var tableName = this.get( 'name' );
+            var RedundancyTable = LocalStorage.redundancyTableItem;
+            var field;
+            var index;
+            var rdTable;
+
+            if( !this.redundancyTable ){
+
+                this.redundancyTable = {};
+            }
+
+            for( index = 0; field = fields[ index ]; index++ ){
+
+                if( field in this.redundancyTable ){
+
+                    rdTable = this.redundancyTable[ field ];
+                    rdTable.fetch();
+                }
+                else {
+
+                    rdTable = this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
+                    rdTable.fetch();
+
+                    // 当localStorage中没有数据时，fetch不会有任何影响，必须先将新建的空冗余表储存到localStorage中
+                    rdTable.save();
+                }
+            }
+        },
+
+        _removeRedundancyItem: function( index ){
+
+            var rdTable;
+            var field;
+
+            for( field in this.redundancyTable ){
+
+                rdTable = this.redundancyTable[ field ];
+                rdTable.remove( index );
+            }
+        },
+
+        _insertRedundancyItem: function( index, data ){
+
+            var rdTable;
+            var field;
+            var fieldHash = this.get( 'fieldHash' );
+            var value;
+
+            for( field in this.redundancyTable ){
+
+                rdTable = this.redundancyTable[ field ];
+                value = data[ fieldHash[ field ] ];
+
+                rdTable.insert( index, value );
+            }
+        },
+
+        _updateRedundancyItem: function( index, updateObj ){
+
+            var fieldHash = this.get( 'fieldHash' );
+            var field;
+            var rdTable;
+            var value;
+
+            for( field in updateObj ){
+
+                rdTable = this.redundancyTable[ field ];
+                value = updateObj[ field ];
+
+                rdTable.update( index, value );
+            }
         }
     });
 })( window );
