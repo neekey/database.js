@@ -47,6 +47,23 @@
                 value: args[ 1 ]
             };
         },
+
+        /**
+         * 解析排序参数
+         * @param order 'desc fieldName' -> { type: 'desc', field: 'filedName' }
+         * @return {Object}
+         */
+        analyseOrder: function( order ){
+
+            var orderArr = order.split( ' ' );
+            var type = orderArr[ 0 ];
+            var field = orderArr[ 1 ];
+
+            return  {
+                type: type,
+                field: field
+            };
+        },
         queryRules: {
             '=': function( left, right ){
                 return left == right;
@@ -125,7 +142,16 @@
         update: function(){
 
         },
-        query: function( condition ){
+        /**
+         * 对表中的数据进行检索
+         * @param {Object} condition {
+         *      'field1': '>= 13',
+         *      'field2': '*= 你好'
+         * }
+         * @param {String} order 对结果进行排序 'desc fieldName'
+         * @return {Array}
+         */
+        query: function( condition, order ){
             var key;
             var value;
             var index;
@@ -166,6 +192,16 @@
 
                     result.push( item );
                 }
+            }
+
+            // 对结果进行排序
+            if( typeof order === 'string' ){
+
+                var order = TableItem.analyseOrder( order );
+                result = Util.sort( result, order.type, function( item ){
+
+                    return item[ fieldHash[ order.field ] ];
+                });
             }
 
             return result;
