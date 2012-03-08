@@ -1,6 +1,7 @@
 (function( host ){
 
     var Database = host.Database;
+    var Config = Database.config;
     var Util = Database.util;
     var LocalStorage = Database.localStorage;
     var Item = LocalStorage.item;
@@ -20,11 +21,44 @@
 
     Util.mix( TableItem, {
 
-        tablePrefix: 'table',
+        /**
+         * 构造数据表的key
+         * @param dbname
+         * @param name
+         * @return {String}
+         */
         getTableKey: function( dbname, name ){
 
-            return this.tablePrefix + String( dbname ) + String( name );
+            var nameConfig = Config.name;
+            var key = nameConfig.libraryName + '-' +
+                nameConfig.tablePrefix + '-' +
+                String( dbname ) + '-' +
+                String( name );
+
+            return key;
         },
+
+        /**
+         * 构造冗余表的key
+         * @param dbname
+         * @param tableName
+         * @param fieldName
+         * @return {String}
+         */
+        getRedundancyTableKey: function( dbname, tableName, fieldName ){
+
+            var key = this.getTableKey( dbname, tableName );
+            key += ( '-' + fieldName );
+
+            return key;
+        },
+
+        /**
+         * 检查表是否存在
+         * @param dbName
+         * @param name
+         * @return {Boolean}
+         */
         ifTableExist: function( dbName, name  ){
 
             var key = this.getTableKey( dbName, name );
@@ -39,6 +73,12 @@
                 return true;
             }
         },
+
+        /**
+         * 解析query字符串 '>= 13' -> { operator: '>=', value: 13 }
+         * @param str
+         * @return {Object}
+         */
         analyseCondition: function( str ){
 
             var args = str.split( ' ' );
@@ -64,6 +104,10 @@
                 field: field
             };
         },
+
+        /**
+         * 定义操作符对应的算法
+         */
         queryRules: {
             '=': function( left, right ){
                 return left == right;

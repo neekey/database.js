@@ -1,6 +1,7 @@
 (function( host ){
 
     var Database = host.Database;
+    var Config = Database.config;
     var Util = Database.util;
     var LocalStorage = Database.localStorage;
     var Item = LocalStorage.item;
@@ -18,11 +19,26 @@
     };
 
     Util.mix( DatabaseItem, {
-        databasePrefix: 'database',
+
+        /**
+         * 构造数据库在localStorage中的key
+         * @param name
+         * @return {String}
+         */
         getDatabaseKey: function( name ){
 
-            return this.databasePrefix + name;
+            var nameConfig = Config.name;
+            var key = nameConfig.libraryName + '-' +
+                nameConfig.databasePrefix + '-' +
+                name;
+
+            return key;
         },
+        /**
+         * 检查数据库是否已经存在
+         * @param name
+         * @return {Boolean}
+         */
         ifDatabaseExist: function( name ){
 
             var key = this.getDatabaseKey( name );
