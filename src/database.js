@@ -7,15 +7,27 @@
     var Item = LocalStorage.item;
     var LS = localStorage;
 
+    /**
+     * 数据库对象
+     * 若localStorage中已经包含名为name的数据库，则会自动fetch，否则会使用默认空数据
+     * @type {Function}
+     */
     var DatabaseItem = LocalStorage.databaseItem = function( name ){
 
         var key = DatabaseItem.getDatabaseKey( name );
-
-        Item.call( this, key, {
+        var defaultData = {
             name: name,
             length: 0,
             tables: {}
-        });
+        };
+
+        Item.call( this, key );
+
+        // 检查原来是否有数据
+        if( this.get( 'name' ) === undefined ){
+
+            this.set( defaultData );
+        }
     };
 
     Util.mix( DatabaseItem, {
@@ -69,16 +81,15 @@
 
             var newTable = new LocalStorage.tableItem( this.get( 'name' ), name, fields );
 
-            // 建立冗余数据表
-            newTable._createRedundancyTable();
-            newTable.save();
+//            // 建立冗余数据表
+//            newTable._createRedundancyTable();
+//            newTable.save();
 
             tables[ name ] = {
                 name: name
             };
 
             this.set( { length: this.get( 'length' ) + 1 } );
-            this.save();
 
             return newTable;
         },
@@ -94,10 +105,10 @@
 
             var newTable = new LocalStorage.tableItem( this.get( 'name' ), name );
 
-            newTable.fetch();
+//            newTable.fetch();
 
             // fetch冗余表数据
-            newTable._fetchRedundancyTable();
+//            newTable._fetchRedundancyTable();
 
             return newTable;
         },
@@ -122,8 +133,6 @@
                     tables: tables,
                     length: this.get( 'length' ) - 1
                 });
-
-                this.save();
             }
         }
     });
@@ -138,7 +147,6 @@
             }
 
             var newDB = new DatabaseItem ( name );
-            newDB.save();
 
             return newDB;
         },
@@ -151,7 +159,6 @@
             }
 
             var newDB = new DatabaseItem ( name );
-            newDB.fetch();
 
             return newDB;
         }

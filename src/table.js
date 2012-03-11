@@ -7,20 +7,39 @@
     var Item = LocalStorage.item;
     var LS = localStorage;
 
+    /**
+     * table数据操作对象
+     * 如果指定field，则是创建新表格，若不指定，则将从localStorage中fetch，若没有数据，则使用默认数据
+     * @type {Function}
+     */
     var TableItem = LocalStorage.tableItem = function( dbName, name, fields ){
 
         var key = TableItem.getTableKey( dbName, name );
-
-        Item.call( this, key, {
+        var defaultData = {
             dbName: dbName,
             name: name,
             length: 0,
             data: [],
-            fields: fields
-        });
+            fields: fields || []
+        };
 
-        this.fieldHash = this._buildFieldHash();
-        //this.redundancyTable = this._createRedundancyTable();
+        if( fields ){
+
+            Item.call( this, key, defaultData );
+        }
+        else {
+
+            Item.call( this, key );
+        }
+
+//        this._fetch = LocalStorage.item.prototype.fetch;
+        if( this.get( 'name' ) === undefined ){
+
+            this.set( defaultData );
+        }
+
+        this._buildFieldHash();
+        this._buildRedundancyTable();
     };
 
     Util.mix( TableItem, {
@@ -65,16 +84,29 @@
 
         /**
          * 解析query字符串 '>= 13' -> { operator: '>=', value: 13 }
+         * 若存在多个条件，用分号分割比如 '> 100; <= 500'
          * @param str
          * @return {Object}
          */
         analyseCondition: function( str ){
 
-            var args = str.split( ' ' );
-            return {
-                operator: args[ 0 ],
-                value: args[ 1 ]
-            };
+            var cons = str.split( ';' );
+            var trimEx = /^\s*|\s$/g;
+            var con;
+            var index;
+            var args;
+            var result = [];
+
+            for( index = 0; con = cons[ index ]; index++ ){
+
+                args = con.replace( trimEx, '' ).split( ' ' );
+
+                result.push({
+                    operator: args[ 0 ],
+                    value: args[ 1 ]
+                })
+            }
+            return result;
         },
 
         /**
@@ -98,40 +130,125 @@
          * 定义操作符对应的算法
          */
         queryRules: {
+
+            /**
+             * 等于
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '=': function( left, right ){
                 return left == right;
             },
 
+            /**
+             * 不等于
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '!=': function( left, right ){
                 return left != right;
             },
 
+            /**
+             * 大于
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '>': function( left, right ){
                 return left > right;
             },
 
+            /**
+             * 大于等于
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '>=': function( left, right ){
                 return left >= right;
             },
 
+            /**
+             * 小于
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '<': function( left, right ){
                 return left < right;
             },
 
+            /**
+             * 小于等于
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '<=': function( left, right ){
                 return left <= right;
             },
 
+            /**
+             * 包含某个字符串
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '*=': function( left, right ){
                 return String( left).indexOf( String( right ) ) >= 0;
             },
 
+            /**
+             * 不包含某个字符串
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
+            '!*=': function( left, right ){
+             return String( left).indexOf( String( right ) ) < 0;
+            },
+
+            /**
+             * 以某个字符串开始
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '^=': function( left, right ){
                 return String( left).indexOf( String( right ) ) === 0;
             },
 
+            /**
+             * 不以某个字符串开始
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
+            '!^=': function( left, right ){
+                return String( left).indexOf( String( right ) ) !== 0
+            },
+
+            /**
+             * 以某个字符串结尾
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
             '$=': function( left, right ){
                 return String( left).indexOf( String( right ) ) >= 0 && ( String( left).indexOf( String( right ) ) === ( String( left).length - String( right).length ) );
+            },
+
+            /**
+             * 不以某个字符串结尾
+             * @param left
+             * @param right
+             * @return {Boolean}
+             */
+            '!$=': function( left, right ){
+                return !( String( left).indexOf( String( right ) ) >= 0 && ( String( left).indexOf( String( right ) ) === ( String( left).length - String( right).length ) ) );
             }
         }
     });
@@ -139,21 +256,16 @@
     Util.mix( TableItem.prototype, Item.prototype );
     Util.mix( TableItem.prototype, {
 
-        fetch: function(){
+//        fetch: function(){
+//
+//            this._fetch();
+//            this._buildFieldHash();
+//        },
 
-            var data = LS.getItem( this.key );
-
-            if( data ){
-
-                this.data = JSON.parse( data );
-            }
-
-            this._buildFieldHash();
-        },
-
+        //todo 数据插入的效率问题
         insert: function(){
 
-            var newData = this.insert.apply( this, arguments );
+            var newData = this._insert.apply( this, arguments );
 
             return newData.data;
         },
@@ -193,8 +305,6 @@
                 data: TableData,
                 length: this.get( 'length' ) + 1
             });
-
-            this.save();
 
             newIndex = this.get( 'length' ) - 1;
 
@@ -237,8 +347,6 @@
                 length: dataLen
             });
 
-            this.save();
-
             return resultLen;
         },
 
@@ -246,7 +354,7 @@
         update: function( condition, updateObj ){
 
             var result = this._query( condition );
-            var fieldHash = this.get( 'fieldHash' );
+            var fieldHash = this.fieldHash;
             var data = this.get( 'data' );
             var dataItem;
             var field;
@@ -266,8 +374,6 @@
             }
 
             this.set( 'data', data );
-
-            this.save();
         },
 
         query: function(){
@@ -294,6 +400,7 @@
          * @param {String} order 对结果进行排序 'desc fieldName'
          * @return {Array} [ { index: 13, data: .. }, { .. }, .. ]
          * @private
+         * //todo 使用冗余表 加速检索
          */
         _query: function( condition, order ){
             var key;
@@ -303,26 +410,43 @@
             var valid;
             var operator;
             var con;
+            var conArr = [];
+            var conArrTemp;
             var result = [];
             var data = this.get( 'data' );
+            var dataLen = data.length;
             var fields = this.get( 'fields' );
-            var field;
-            var fieldHash = {};
+            var fieldHash = this.fieldHash;
+            var i;
 
-            for( index = 0; field = fields[ index ]; index++ ){
+            for( key in condition ){
 
-                fieldHash[ field ] = index;
+                conArrTemp = TableItem.analyseCondition( condition[ key ] );
+
+                for( index = 0; con = conArrTemp[ index ]; index++ ){
+
+                    con.key = key;
+
+                    conArr.push( con );
+                }
             }
 
-            for( index = 0; item = data[ index ]; index++ ){
+            for( index = 0; index < dataLen; index++ ){
+
+                item = data[ index ];
+
+                if( item === undefined ){
+
+                    continue;
+                }
 
                 valid = true;
 
-                for( key in condition ){
+                for( i = 0; con = conArr[ i ]; i++ ){
 
-                    con = TableItem.analyseCondition( condition[ key ] );
                     operator = con.operator;
                     value = con.value;
+                    key = con.key;
 
                     valid = TableItem.queryRules[ operator ]( item[ fieldHash[ key ] ], value );
 
@@ -380,7 +504,7 @@
          * @return {Object}
          * @private
          */
-        _createRedundancyTable: function( ){
+        _buildRedundancyTable: function( ){
 
             if( !this.redundancyTable ){
 
@@ -390,6 +514,7 @@
             var fields = this.get( 'fields' );
             var dbName = this.get( 'dbName' );
             var tableName = this.get( 'name' );
+            var rdTable;
             var data;
             var field;
             var index;
@@ -398,8 +523,14 @@
             for( index = 0; field = fields[ index ]; index++ ){
 
 //                data = this._buildRedundancyData( field );
-                this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
-                this.redundancyTable[ field ].save();
+                rdTable = this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
+
+                // 查看是否原来就有数据
+                if( !rdTable.get( 'length' ) ){
+
+                    data = this._buildRedundancyData( field );
+                    rdTable.set( data );
+                }
             }
 
             return this.redundancyTable;
@@ -421,43 +552,43 @@
             return data;
         },
 
-        /**
-         * 获取到存储在localStorage中的数据
-         * 遍历表的所有字段，已经建立了冗余表的，则直接fetch，否则新建表，并fetch
-         * @private
-         */
-        _fetchRedundancyTable: function(){
-
-            var fields = this.get( 'fields' );
-            var dbName = this.get( 'dbName' );
-            var tableName = this.get( 'name' );
-            var RedundancyTable = LocalStorage.redundancyTableItem;
-            var field;
-            var index;
-            var rdTable;
-
-            if( !this.redundancyTable ){
-
-                this.redundancyTable = {};
-            }
-
-            for( index = 0; field = fields[ index ]; index++ ){
-
-                if( field in this.redundancyTable ){
-
-                    rdTable = this.redundancyTable[ field ];
-                    rdTable.fetch();
-                }
-                else {
-
-                    rdTable = this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
-                    rdTable.fetch();
-
-                    // 当localStorage中没有数据时，fetch不会有任何影响，必须先将新建的空冗余表储存到localStorage中
-                    rdTable.save();
-                }
-            }
-        },
+//        /**
+//         * 获取到存储在localStorage中的数据
+//         * 遍历表的所有字段，已经建立了冗余表的，则直接fetch，否则新建表，并fetch
+//         * @private
+//         */
+//        _fetchRedundancyTable: function(){
+//
+//            var fields = this.get( 'fields' );
+//            var dbName = this.get( 'dbName' );
+//            var tableName = this.get( 'name' );
+//            var RedundancyTable = LocalStorage.redundancyTableItem;
+//            var field;
+//            var index;
+//            var rdTable;
+//
+//            if( !this.redundancyTable ){
+//
+//                this.redundancyTable = {};
+//            }
+//
+//            for( index = 0; field = fields[ index ]; index++ ){
+//
+//                if( field in this.redundancyTable ){
+//
+//                    rdTable = this.redundancyTable[ field ];
+//                    rdTable.fetch();
+//                }
+//                else {
+//
+//                    rdTable = this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
+//                    rdTable.fetch();
+//
+//                    // 当localStorage中没有数据时，fetch不会有任何影响，必须先将新建的空冗余表储存到localStorage中
+//                    rdTable.save();
+//                }
+//            }
+//        },
 
         _removeRedundancyItem: function( index ){
 
@@ -475,7 +606,7 @@
 
             var rdTable;
             var field;
-            var fieldHash = this.get( 'fieldHash' );
+            var fieldHash = this.fieldHash;
             var value;
 
             for( field in this.redundancyTable ){
@@ -489,7 +620,7 @@
 
         _updateRedundancyItem: function( index, updateObj ){
 
-            var fieldHash = this.get( 'fieldHash' );
+            var fieldHash = this.fieldHash;
             var field;
             var rdTable;
             var value;

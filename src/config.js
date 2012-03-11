@@ -7,7 +7,7 @@
             libraryName: 'DatabaseJS',
             databasePrefix: 'database',
             tablePrefix: 'table',
-            tableRedundancyPrefix: 'redundancy'
+            redundancyTablePrefix: 'redundancyTable'
         }
     };
 

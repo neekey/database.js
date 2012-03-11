@@ -14,20 +14,31 @@
      * @param {Array} data [[ index, value ], [ index2, value2 ], ... ]
      * @type {Function}
      */
-    var RedundancyTableItem = LocalStorage.redundancyTableItem = function( dbName, tableName, fieldName ){
+    var RedundancyTableItem = LocalStorage.redundancyTableItem = function( dbName, tableName, fieldName, data ){
 
         var key = RedundancyTableItem.getRedundancyTableKey( dbName, tableName, fieldName );
-
-        Item.call( this, key, {
+        var defaultData = {
             dbName: dbName,
             tableName: tableName,
             fieldName: fieldName,
-            length: 0,
+            length: data ? data.length : 0,
             // 数据在主表中的index 与 在冗余表的data中的index的对应
             indexHash: {},
             // [ [index, value] ]
-            data: []
-        });
+            data: data || []
+        };
+
+        if( data ){
+            Item.call( this, key, defaultData );
+        }
+        else {
+            Item.call( this, key );
+        }
+
+        if( this.get( 'fieldName' ) === undefined ){
+
+            this.set( defaultData );
+        }
     };
 
     Util.mix( RedundancyTableItem.prototype, Item.prototype );
@@ -44,7 +55,7 @@
 
             var nameConfig = Config.name;
             var key = nameConfig.libraryName + '-' +
-                nameConfig.tablePrefix + '-' +
+                nameConfig.redundancyTablePrefix + '-' +
                 String( dbName ) + '-' +
                 String( tableName ) + '-' +
                 String( fieldName );
@@ -59,6 +70,7 @@
 
             var indexHash = this.get( 'indexHash' );
             var data = this.get( 'data' );
+            var dataLen = data.length;
             var dataIndex = indexHash[ index ];
 
             delete indexHash[ index ];
@@ -66,10 +78,31 @@
 
             this.set({
                 data: data,
-                indexHash: indexHash
+                indexHash: indexHash,
+                length: this.get( 'length' ) - 1
             });
 
-            this.save();
+//            this.save();
+        },
+
+        setData: function( data ){
+
+            var indexHash = {};
+            var dataIndex;
+            var dataItem;
+            var index
+
+            for( index = 0; dataItem = data[ index ]; index++ ){
+
+                dataIndex = dataItem[ 0 ];
+                indexHash[ dataIndex ] = index;
+            }
+
+            this.set({
+                data: data,
+                indexHash: indexHash,
+                length: data.length
+            });
         },
 
         insert: function( index, value ){
@@ -83,10 +116,11 @@
 
             this.set({
                 data: data,
-                indexHash: indexHash
+                indexHash: indexHash,
+                length: this.get( 'length' ) + 1
             });
 
-            this.save();
+//            this.save();
         },
 
         update: function( index, value ){
@@ -99,7 +133,7 @@
 
             this.set( 'data', data );
 
-            this.save();
+//            this.save();
         }
     });
 })( window );
