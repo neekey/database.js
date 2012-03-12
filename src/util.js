@@ -23,7 +23,7 @@
          * @param dataA
          * @param dataB
          * @param getValue
-         * @return {Array} 以值在数组A中的索引作为结果返回
+         * @return {Array} 以值在数组A中符合条件的成员作为结果返回
          * @return {Array}
          */
         intersect: function( dataA, dataB, getValue ){
@@ -61,7 +61,7 @@
 
                     if( valueA === valueB ){
 
-                        result.push( indexA );
+                        result.push( itemA );
                     }
                 }
             }

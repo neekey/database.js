@@ -27,8 +27,8 @@
             var result = Util.intersect( dataA, dataB );
 
             expect( result.length ).toBe( 2 );
-            expect( result[ 0 ] ).toBe( 0 );
-            expect( result[ 1 ]).toBe( 1 );
+            expect( result[ 0 ] ).toBe( 2 );
+            expect( result[ 1 ]).toBe( 7 );
         });
     });
 })();
