@@ -12,7 +12,7 @@
      * 如果指定field，则是创建新表格，若不指定，则将从localStorage中fetch，若没有数据，则使用默认数据
      * @type {Function}
      */
-    var TableItem = LocalStorage.tableItem = function( dbName, name, fields ){
+    var TableItem = LocalStorage.tableItem = function( dbName, name, fields, index ){
 
         var key = TableItem.getTableKey( dbName, name );
         var defaultData = {
@@ -20,7 +20,8 @@
             name: name,
             length: 0,
             data: [],
-            fields: fields || []
+            fields: fields || [],
+            index: index || []
         };
 
         if( fields ){
@@ -137,8 +138,12 @@
              * @param right
              * @return {Boolean}
              */
-            '=': function( left, right ){
-                return left == right;
+            '=': {
+                useRedundancy: true,
+                fn: function( left, right ){
+
+                    return left == right;
+                }
             },
 
             /**
@@ -147,8 +152,11 @@
              * @param right
              * @return {Boolean}
              */
-            '!=': function( left, right ){
-                return left != right;
+            '!=': {
+                useRedundancy: true,
+                fn: function( left, right ){
+                    return left != right;
+                }
             },
 
             /**
@@ -157,8 +165,11 @@
              * @param right
              * @return {Boolean}
              */
-            '>': function( left, right ){
-                return left > right;
+            '>': {
+                useRedundancy: true,
+                fn: function( left, right ){
+                    return left > right;
+                }
             },
 
             /**
@@ -167,8 +178,11 @@
              * @param right
              * @return {Boolean}
              */
-            '>=': function( left, right ){
-                return left >= right;
+            '>=': {
+                useRedundancy: true,
+                fn: function( left, right ){
+                    return left >= right;
+                }
             },
 
             /**
@@ -177,8 +191,11 @@
              * @param right
              * @return {Boolean}
              */
-            '<': function( left, right ){
-                return left < right;
+            '<': {
+                useRedundancy: true,
+                fn: function( left, right ){
+                    return left < right;
+                }
             },
 
             /**
@@ -187,8 +204,11 @@
              * @param right
              * @return {Boolean}
              */
-            '<=': function( left, right ){
-                return left <= right;
+            '<=': {
+                useRedundancy: true,
+                fn: function( left, right ){
+                    return left <= right;
+                }
             },
 
             /**
@@ -197,8 +217,11 @@
              * @param right
              * @return {Boolean}
              */
-            '*=': function( left, right ){
-                return String( left).indexOf( String( right ) ) >= 0;
+            '*=': {
+                useRedundancy: false,
+                fn: function( left, right ){
+                    return String( left).indexOf( String( right ) ) >= 0;
+                }
             },
 
             /**
@@ -207,8 +230,11 @@
              * @param right
              * @return {Boolean}
              */
-            '!*=': function( left, right ){
-             return String( left).indexOf( String( right ) ) < 0;
+            '!*=': {
+                useRedundancy: false,
+                fn: function( left, right ){
+                    return String( left).indexOf( String( right ) ) < 0;
+                }
             },
 
             /**
@@ -217,8 +243,11 @@
              * @param right
              * @return {Boolean}
              */
-            '^=': function( left, right ){
-                return String( left).indexOf( String( right ) ) === 0;
+            '^=': {
+                useRedundancy: false,
+                fn: function( left, right ){
+                    return String( left).indexOf( String( right ) ) === 0;
+                }
             },
 
             /**
@@ -227,8 +256,11 @@
              * @param right
              * @return {Boolean}
              */
-            '!^=': function( left, right ){
-                return String( left).indexOf( String( right ) ) !== 0
+            '!^=': {
+                useRedundancy: false,
+                fn: function( left, right ){
+                    return String( left).indexOf( String( right ) ) !== 0
+                }
             },
 
             /**
@@ -237,8 +269,11 @@
              * @param right
              * @return {Boolean}
              */
-            '$=': function( left, right ){
-                return String( left).indexOf( String( right ) ) >= 0 && ( String( left).indexOf( String( right ) ) === ( String( left).length - String( right).length ) );
+            '$=': {
+                useRedundancy: false,
+                fn: function( left, right ){
+                    return String( left).indexOf( String( right ) ) >= 0 && ( String( left).indexOf( String( right ) ) === ( String( left).length - String( right).length ) );
+                }
             },
 
             /**
@@ -247,8 +282,11 @@
              * @param right
              * @return {Boolean}
              */
-            '!$=': function( left, right ){
-                return !( String( left).indexOf( String( right ) ) >= 0 && ( String( left).indexOf( String( right ) ) === ( String( left).length - String( right).length ) ) );
+            '!$=': {
+                useRedundancy: false,
+                fn: function( left, right ){
+                    return !( String( left).indexOf( String( right ) ) >= 0 && ( String( left).indexOf( String( right ) ) === ( String( left).length - String( right).length ) ) );
+                }
             }
         }
     });
@@ -411,8 +449,12 @@
             var operator;
             var con;
             var conArr = [];
+            var rdConArr = [];
             var conArrTemp;
             var result = [];
+            var comResult = [];
+            var rdResult;
+            var resultTemp;
             var data = this.get( 'data' );
             var dataLen = data.length;
             var fields = this.get( 'fields' );
@@ -427,10 +469,19 @@
 
                     con.key = key;
 
-                    conArr.push( con );
+                    // 规则允许使用冗余表，且冗余表存在（或者说用户设置了对该字段建立索引）
+                    if( TableItem.queryRules[ con.operator ][ 'useRedundancy' ] && this.redundancyTable[ key ]  ){
+
+                        rdConArr.push( con );
+                    }
+                    else {
+
+                        conArr.push( con );
+                    }
                 }
             }
 
+            // 先查找不需要使用冗余表的条件
             for( index = 0; index < dataLen; index++ ){
 
                 item = data[ index ];
@@ -448,7 +499,7 @@
                     value = con.value;
                     key = con.key;
 
-                    valid = TableItem.queryRules[ operator ]( item[ fieldHash[ key ] ], value );
+                    valid = TableItem.queryRules[ operator ][ 'fn' ]( item[ fieldHash[ key ] ], value );
 
                     if( valid === false ){
 
@@ -458,11 +509,39 @@
 
                 if( valid === true ){
 
-                    result.push( {
+                    comResult.push( {
                         index: index,
                         data: item
                     } );
                 }
+            }
+
+            // 对需要使用冗余表的条件进行查询
+            for( i = 0; con = rdConArr[ i ]; i++ ){
+
+                var resultTemp = this._queryRedundancyTable( con.key, con.operator, con.value );
+
+                if( rdResult === undefined ){
+
+                    rdResult = resultTemp;
+                }
+                else {
+
+                    rdResult = Util.intersect( rdResult, resultTemp, function getValue( item ){
+                        return item.index;
+                    });
+                }
+            }
+
+            // 对两种结果进行合并
+            if( rdResult !== undefined ){
+                result = Util.intersect( comResult, rdResult, function getValue( item ){
+                    return item.index;
+                });
+            }
+            else {
+
+                result = comResult;
             }
 
             // 对结果进行排序
@@ -473,6 +552,121 @@
 
                     return item[ fieldHash[ order.field ] ];
                 });
+            }
+
+            return result;
+        },
+
+        //todo 还存在很多问题，还是应该是用运算符的定义方法来作为比较
+        _queryRedundancyTable: function( key, operator, value ){
+
+            var rule = TableItem.queryRules[ operator ];
+            var data = this.get( 'data' );
+            var useRedundancy = rule.useRedundancy;
+            var rdTable = this.redundancyTable[ key ];
+            var rdData = rdTable.get( 'data' );
+            var rdLen = rdData.length;
+            var index;
+            var result = [];
+            var originIndex;
+            var i;
+
+            if( useRedundancy ){
+
+                // 从key对应的冗余数据表中查询数据
+                originIndex = Util.binarySearch( rdData, value, function( item ){
+
+                    return item[ 1 ];
+                });
+
+
+                switch( operator ){
+                    // 若为 =
+                    case '=':
+                        index = rdData[ originIndex ][ 0 ];
+                        result.push({
+                            index: index,
+                            data: data[ index ]
+                        });
+                        break;
+
+                    // 若为 !=
+                    case '!=':
+                        for( i = 0; i < rdLen; i++ ){
+
+                            if( rdData[ i ] !== undefined && i !== originIndex ){
+                                index = rdData[ i ][ 0 ];
+                                result.push({
+                                    index: index,
+                                    data: data[ index ]
+                                });
+                            }
+                        }
+                        break;
+
+                    // 若为 >=
+                    // 在此以及下方的比较都是，是默认冗余表是升序排列
+                    case '>=':
+                        for( i = originIndex; i < rdLen; i++ ){
+
+                            if( rdData[ i ] !== undefined ){
+
+                                index = rdData[ i ][ 0 ];
+                                result.push({
+                                    index: index,
+                                    data: data[ index ]
+                                });
+                            }
+                        }
+                        break;
+
+                    // 若为 <=
+                    case '<=':
+                        for( i = originIndex; i >= 0; i-- ){
+
+                            if( rdData[ i ] !== undefined ){
+
+                                index = rdData[ i ][ 0 ];
+                                result.push({
+                                    index: index,
+                                    data: data[ index ]
+                                });
+                            }
+                        }
+                        break;
+
+                    // 若为 >
+                    case '>':
+                        for( i = originIndex + 1; i < rdLen; i++ ){
+
+                            if( rdData[ i ] !== undefined ){
+
+                                index = rdData[ i ][ 0 ];
+                                result.push({
+                                    index: index,
+                                    data: data[ index ]
+                                });
+                            }
+                        }
+                        break;
+
+                    // 若为 <
+                    case '<':
+                        for( i = originIndex - 1; i >= 0; i-- ){
+
+                            if( rdData[ i ] !== undefined ){
+
+                                index = rdData[ i ][ 0 ];
+                                result.push({
+                                    index: index,
+                                    data: data[ index ]
+                                });
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
 
             return result;
@@ -511,7 +705,7 @@
                 this.redundancyTable = {};
             }
 
-            var fields = this.get( 'fields' );
+            var fields = this.get( 'index' );
             var dbName = this.get( 'dbName' );
             var tableName = this.get( 'name' );
             var rdTable;
@@ -628,9 +822,12 @@
             for( field in updateObj ){
 
                 rdTable = this.redundancyTable[ field ];
-                value = updateObj[ field ];
 
-                rdTable.update( index, value );
+                if( rdTable ){
+
+                    value = updateObj[ field ];
+                    rdTable.update( index, value );
+                }
             }
         }
     });

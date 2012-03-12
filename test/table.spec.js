@@ -9,7 +9,7 @@
         var fields = [ 'a', 'b', 'c', 'type' ];
 
         var db = Database.createDatabase( dbName );
-        var t = db.createTable( tableName, fields );
+        var t = db.createTable( tableName, fields, [ 'a', 'b', 'c' ] );
 
         it( 'insert', function(){
 

@@ -70,7 +70,7 @@
     Util.mix( DatabaseItem.prototype, Item.prototype );
     Util.mix( DatabaseItem.prototype, {
 
-        createTable: function( name, fields ){
+        createTable: function( name, fields, index ){
 
             var tables = this.get( 'tables' );
 
@@ -79,7 +79,7 @@
                 return;
             }
 
-            var newTable = new LocalStorage.tableItem( this.get( 'name' ), name, fields );
+            var newTable = new LocalStorage.tableItem( this.get( 'name' ), name, fields, index );
 
 //            // 建立冗余数据表
 //            newTable._createRedundancyTable();

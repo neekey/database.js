@@ -23,8 +23,9 @@
          * @param dataA
          * @param dataB
          * @param getValue
-         * @return {Array} 以值在数组A中的索引作为结果返回
+         * @return {Array} 以A中的数组成员作为结果返回
          * @return {Array}
+         * //todo 对单元测试进行修改
          */
         intersect: function( dataA, dataB, getValue ){
 
@@ -61,7 +62,7 @@
 
                     if( valueA === valueB ){
 
-                        result.push( indexA );
+                        result.push( itemA );
                     }
                 }
             }
@@ -85,7 +86,7 @@
 
             var item;
             var value;
-            var getValue = !!typeof getValue === 'function';
+            var ifGetValue = !!( typeof getValue === 'function' );
 
             var dataLen = dataArr.length;
             var max = dataLen - 1;
@@ -101,7 +102,7 @@
 
                 item = dataArr[ mid ];
 
-                if( getValue ){
+                if( ifGetValue && item !== undefined && item !== null ){
 
                     value = getValue( item );
                 }
@@ -109,6 +110,9 @@
 
                     value = item;
                 }
+
+                value = Number( value );
+                target = Number( target );
 
                 if( value === target ){
 
