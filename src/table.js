@@ -32,14 +32,12 @@
             Item.call( this, key );
         }
 
-//        this._fetch = LocalStorage.item.prototype.fetch;
         if( this.get( 'name' ) === undefined ){
 
             this.set( defaultData );
         }
 
         this._buildFieldHash();
-        this._buildRedundancyTable();
     };
 
     Util.mix( TableItem, {
@@ -308,9 +306,6 @@
 
             newIndex = this.get( 'length' ) - 1;
 
-            // 想冗余表中添加数据
-            this._insertRedundancyItem( newIndex, data );
-
             return {
                 index: newIndex,
                 data: data
@@ -338,8 +333,6 @@
 
                 delete data[ itemIndex ];
                 dataLen--;
-
-                this._removeRedundancyItem( itemIndex );
             }
 
             this.set( {
@@ -369,8 +362,6 @@
 
                     dataItem[ fieldHash[ field ] ] = updateObj[ field ];
                 }
-
-                this._updateRedundancyItem( index, updateObj );
             }
 
             this.set( 'data', data );
@@ -496,141 +487,6 @@
                 }
 
                 return this.fieldHash = fieldHash;
-            }
-        },
-
-        /**
-         * 为所有字段都穿件冗余表，该方法只有在新建表的时候被调用
-         * @return {Object}
-         * @private
-         */
-        _buildRedundancyTable: function( ){
-
-            if( !this.redundancyTable ){
-
-                this.redundancyTable = {};
-            }
-
-            var fields = this.get( 'fields' );
-            var dbName = this.get( 'dbName' );
-            var tableName = this.get( 'name' );
-            var rdTable;
-            var data;
-            var field;
-            var index;
-            var RedundancyTable = LocalStorage.redundancyTableItem;
-
-            for( index = 0; field = fields[ index ]; index++ ){
-
-//                data = this._buildRedundancyData( field );
-                rdTable = this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
-
-                // 查看是否原来就有数据
-                if( !rdTable.get( 'length' ) ){
-
-                    data = this._buildRedundancyData( field );
-                    rdTable.set( data );
-                }
-            }
-
-            return this.redundancyTable;
-        },
-
-        _buildRedundancyData: function( field ){
-
-            var fieldIndex = this.fieldHash[ field ];
-            var tableData = this.get( 'data' );
-            var data = [];
-            var item;
-            var index;
-
-            for( index = 0; item = tableData[ index ]; index++ ){
-
-                data.push( [ index, item[ fieldIndex ] ] );
-            }
-
-            return data;
-        },
-
-//        /**
-//         * 获取到存储在localStorage中的数据
-//         * 遍历表的所有字段，已经建立了冗余表的，则直接fetch，否则新建表，并fetch
-//         * @private
-//         */
-//        _fetchRedundancyTable: function(){
-//
-//            var fields = this.get( 'fields' );
-//            var dbName = this.get( 'dbName' );
-//            var tableName = this.get( 'name' );
-//            var RedundancyTable = LocalStorage.redundancyTableItem;
-//            var field;
-//            var index;
-//            var rdTable;
-//
-//            if( !this.redundancyTable ){
-//
-//                this.redundancyTable = {};
-//            }
-//
-//            for( index = 0; field = fields[ index ]; index++ ){
-//
-//                if( field in this.redundancyTable ){
-//
-//                    rdTable = this.redundancyTable[ field ];
-//                    rdTable.fetch();
-//                }
-//                else {
-//
-//                    rdTable = this.redundancyTable[ field ] = new RedundancyTable( dbName, tableName, field );
-//                    rdTable.fetch();
-//
-//                    // 当localStorage中没有数据时，fetch不会有任何影响，必须先将新建的空冗余表储存到localStorage中
-//                    rdTable.save();
-//                }
-//            }
-//        },
-
-        _removeRedundancyItem: function( index ){
-
-            var rdTable;
-            var field;
-
-            for( field in this.redundancyTable ){
-
-                rdTable = this.redundancyTable[ field ];
-                rdTable.remove( index );
-            }
-        },
-
-        _insertRedundancyItem: function( index, data ){
-
-            var rdTable;
-            var field;
-            var fieldHash = this.fieldHash;
-            var value;
-
-            for( field in this.redundancyTable ){
-
-                rdTable = this.redundancyTable[ field ];
-                value = data[ fieldHash[ field ] ];
-
-                rdTable.insert( index, value );
-            }
-        },
-
-        _updateRedundancyItem: function( index, updateObj ){
-
-            var fieldHash = this.fieldHash;
-            var field;
-            var rdTable;
-            var value;
-
-            for( field in updateObj ){
-
-                rdTable = this.redundancyTable[ field ];
-                value = updateObj[ field ];
-
-                rdTable.update( index, value );
             }
         }
     });
