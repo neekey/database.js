@@ -98,6 +98,27 @@
                 expect( expectResult[ index ]).toEqual( result[ index ][ 'value' ] );
             }
         });
+
+        it( '升序降序-字符串', function(){
+
+            var arr = [ 'abc', 'abd', 'ccc', 'aacccccc', 'zzzzzz', 'dddddd' ];
+            var expectResult = [ 'aacccccc', 'abc', 'abd', 'ccc', 'dddddd', 'zzzzzz' ];
+            var result = Util.sort( arr, 'asc' );
+            var index;
+
+            for( index = 0; expectResult[ index ]; index++ ){
+
+                expect( result[ index ]).toBe( expectResult[ index ] );
+            }
+
+            result = Util.sort( arr, 'desc')
+
+            for( index = expectResult.length - 1; index >= 0; index-- ){
+
+                expect( result[ expectResult.length - 1 - index ]).toBe( expectResult[ index ] );
+            }
+
+        });
     });
 
 })();

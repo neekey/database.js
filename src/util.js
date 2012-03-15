@@ -148,6 +148,8 @@
          */
         sort: function( arr, type, getValue ){
 
+            var that = this;
+
             arr.sort(function( a, b ){
 
                 var valueA;
@@ -167,13 +169,45 @@
                 switch( type.toLowerCase() ){
 
                     case 'asc':
-                        return valueA - valueB;
+                        return that.compare( valueA, valueB );
                     case 'desc':
-                        return valueB - valueA;
+                        return that.compare( valueA, valueB ) * ( -1 );
                 }
             });
 
             return arr;
+        },
+
+        /**
+         * 对两个值进行比较，如果 a > b 返回 大于零的数字，小于则返回小于零的数字，否则返回零
+         * 两个比较的数字可以是数字或者字符串,其中“25px"这样的字符串会被解析成数字，
+         * 数字大于字符串
+         * @param {Number|String} a
+         * @param {Number|String} b
+         * @return {*}
+         * @private
+         */
+        compare: function( a, b ){
+
+            a = isNaN( parseFloat( a ) ) ? String( a ) : parseFloat( a );
+            b = isNaN( parseFloat( b ) ) ? String( b ) : parseFloat( b );
+            var typeA = typeof a;
+            var typeB = typeof b;
+
+            // 若两个都是数字
+            if (typeA == typeB) {
+
+                if (typeA == 'number') {
+
+                    return a - b;
+                }
+                else {
+
+                    return a.localeCompare(b);
+                }
+            }
+            // 如果A为数字，则认为大于字符串
+            else return typeA == 'number';
         }
     };
 
