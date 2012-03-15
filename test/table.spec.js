@@ -77,6 +77,22 @@
 
         });
 
+//        it( 'Batch Insert', function(){
+//
+//            runs(function(){
+//
+//                jasmine.log( '批处理插入数组类型数据' );
+//
+//                var BatchData = [];
+//                var index;
+//
+//                for( index = 0; index < 100; index++ ){
+//
+//                }
+//
+//            });
+//        });
+
         it( 'update', function(){
 
             var index;
@@ -145,27 +161,50 @@
             expect( result.length).toBe( 0 );
         });
 
+        it( 'Batch Insert', function(){
+
+            runs(function(){
+
+                jasmine.log( '构造数据' );
+                var Data = [];
+                var tableData;
+                var timeCount = (new Date()).valueOf();
+                var i;
+                var originLen = t.get( 'length' );
+                var newLen;
+                var result;
+                var endIndex;
+
+                for( index = 100; index < 1000; index++ ){
+
+                    Data.push( [ index ] );
+                }
+
+                result = t.insert( Data, true );
+                endIndex = result.index;
+
+                jasmine.log( '插入900行数据耗时:' + ( (new Date()).valueOf() - timeCount ) / 1000 + 's' );
+
+                newLen = t.get( 'length' );
+                expect( newLen ).toBe( originLen + 900 );
+
+                tableData = t.get( 'data' );
+
+                for( index = endIndex - 900 + 1, i = 100; index <= endIndex; index++, i++ ){
+
+                    expect( tableData[ index ]).toBe( i );
+                }
+
+            });
+        });
+
         it( 'query', function(){
 
-            var numData = [];
             var strData = [];
             var strTarget;
             var result;
             var resultItem;
             var index;
-
-            runs(function(){
-
-                jasmine.log( '构造数据' );
-                var timeCount = (new Date()).valueOf();
-
-                for( index = 100; index < 1000; index++ ){
-
-                    numData.push( [ index ] );
-                    t.insert( [ index ] );
-                }
-                jasmine.log( '插入900行数据耗时:' + ( (new Date()).valueOf() - timeCount ) / 1000 + 's' );
-            });
 
             runs( function(){
                 jasmine.log( '测试 = 操作符' );
