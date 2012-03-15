@@ -743,40 +743,76 @@
         /**
          * 插入数据
          * @param {Array|Object} newData [ 'neekey', 'male' ] | { name: 'neekey', sex: 'male' }
+         * @param {Boolean} ifBatch 是否批量插入
          * @return {Number} 新插入的数据索引
          * @private
          */
-        _insert: function( newData ){
+        _insert: function( newData, ifBatch ){
 
+            ifBatch = ifBatch === undefined ? false : ifBatch;
             var data;
             var fields = this.get( 'fields' );
+            var item;
             var field;
             var index;
             var newIndex;
             var TableData = this.get( 'data' );
+            var tableDataLen = this.get( 'length' );
 
-            // 若为数组，则按照fields的顺序对应
-            if( newData.constructor === Array ){
-                data = newData.slice( 0, fields.length );
-            }
+            debugger;
 
-            if( newData.constructor === Object ){
+            // 若为批量插入
+            if( ifBatch && newData.constructor === Array ){
 
-                data = [];
-                for( index = 0; field = fields[ index ]; index++ ){
-                    if( field in newData ){
-                        data[ index ] = newData[ field ];
+                for( index = 0; item = newData[ index ]; index++ ){
+
+                    // 若为数组，则按照fields的顺序对应
+                    if( item.constructor === Array ){
+                        data = item.slice( 0, fields.length );
                     }
+
+                    if( item.constructor === Object ){
+
+                        data = [];
+                        for( index = 0; field = fields[ index ]; index++ ){
+                            if( field in item ){
+                                data[ index ] = item[ field ];
+                            }
+                        }
+                    }
+
+                    TableData.push( data );
+                    tableDataLen++;
                 }
             }
+            // 若为单个插入
+            else {
 
-            TableData.push( data );
+                // 若为数组，则按照fields的顺序对应
+                if( newData.constructor === Array ){
+                    data = newData.slice( 0, fields.length );
+                }
+
+                if( newData.constructor === Object ){
+
+                    data = [];
+                    for( index = 0; field = fields[ index ]; index++ ){
+                        if( field in newData ){
+                            data[ index ] = newData[ field ];
+                        }
+                    }
+                }
+
+                TableData.push( data );
+                tableDataLen++;
+            }
+
             this.set( {
                 data: TableData,
-                length: this.get( 'length' ) + 1
+                length: tableDataLen
             });
 
-            newIndex = this.get( 'length' ) - 1;
+            newIndex = TableData.length - 1;
 
             return {
                 index: newIndex,
