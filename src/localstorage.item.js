@@ -12,6 +12,7 @@
      * @param key
      * @param data
      * @constructor
+     * //todo 添加纯内存版本
      */
     var Item = function( key, data ){
 

@@ -81,7 +81,7 @@
         },
 
         /**
-         * 解析query字符串 '>= 13' -> { operator: '>=', value: 13 }
+         * 解析字符串 '>= 13' -> { operator: '>=', value: 13 }
          * 若存在多个条件，用分号分割比如 '> 100; <= 500'
          * @param str
          * @return {Object}
@@ -126,6 +126,7 @@
 
         /**
          * 定义操作符对应的算法
+         * //todo 使用Util.compare来代替比价
          */
         queryRules: {
 
@@ -272,7 +273,10 @@
          * 插入数据
          * @param {Array|Object} newData [ 'neekey', 'male' ] | { name: 'neekey', sex: 'male' }
          * @param {Boolean} ifBatch 是否批量插入
-         * @return {Number} 新插入的数据索引
+         * @return {Object} {
+         *      index: 新插入的数据索引(如果是批量插入，则为最后一个数据）,
+         *      data: 新插入的数据
+         * }
          * @private
          */
         _insert: function( newData, ifBatch ){
@@ -282,6 +286,7 @@
             var fields = this.get( 'fields' );
             var item;
             var field;
+            var fieldIndex;
             var index;
             var newIndex;
             var TableData = this.get( 'data' );
@@ -300,9 +305,9 @@
                     if( item.constructor === Object ){
 
                         data = [];
-                        for( index = 0; field = fields[ index ]; index++ ){
+                        for( fieldIndex = 0; field = fields[ fieldIndex ]; fieldIndex++ ){
                             if( field in item ){
-                                data[ index ] = item[ field ];
+                                data[ fieldIndex ] = item[ field ];
                             }
                         }
                     }
@@ -377,7 +382,26 @@
             return resultLen;
         },
 
+        /**
+         * 清空表中数据
+         */
+        clear: function(){
 
+            this.set({
+               data: [],
+                length: 0
+            });
+        },
+
+        /**
+         * 更新数据
+         * @param condition 筛选条件
+         * @param updateObj 更新的数据 {
+         *      a: 'newA',
+         *      b: 'newB' ,
+         *      ...
+         * }
+         */
         update: function( condition, updateObj ){
 
             var result = this._query( condition );
@@ -401,6 +425,62 @@
             this.set( 'data', data );
         },
 
+        /**
+         * 获取所有的数据，并可以制定返回的数据形式
+         * @param {String} type 返回的数据类型，数组或者是对象 默认为数组
+         * @param {String} order 对结果进行排序
+         * @return {Array}
+         */
+        getAll: function( type, order ){
+
+            type = type || 'array';
+            var index;
+            var field;
+            var fieldHash = this.fieldHash;
+            var data = this.get( 'data' );
+            var result;
+            var item;
+            var tempItem;
+
+            // 若需要以对象的形式返回
+            if( type === 'object' ){
+
+                result = [];
+
+                for( index = 0; item = data[ index ]; index++ ){
+
+                    tempItem = {};
+
+                    for( field in fieldHash ){
+
+                        tempItem[ field ] = item[ fieldHash[ field ] ];
+                    }
+
+                    result.push( tempItem );
+                }
+            }
+            else {
+                result = data;
+            }
+
+            // 对结果进行排序
+            if( typeof order === 'string' ){
+
+                order = TableItem.analyseOrder( order );
+                result = Util.sort( result, order.type, function( item ){
+
+                    if( type === 'object' ){
+                        return item[ order.field ];
+                    }
+                    else {
+                        return item[ fieldHash[ order.field ] ];
+                    }
+                });
+            }
+
+            return result;
+        },
+
         query: function(){
 
             var _result = this._query.apply( this, arguments );
@@ -422,28 +502,35 @@
          *      'field1': '>= 13',
          *      'field2': '*= 你好'
          * }
-         * @param {String} order 对结果进行排序 'desc fieldName'
-         * @return {Array} [ { index: 13, data: .. }, { .. }, .. ]
+         * @param {Object} option { order: 对结果进行排序 'desc fieldName', type: 结果呈现的类型（数组，对象） }
+         * @return {Array}
          * @private
          * //todo 使用冗余表 加速检索
          */
-        _query: function( condition, order ){
+        _query: function( condition, option ){
+
+            option = option || {};
             var key;
             var value;
             var index;
             var item;
+            var objItem;
             var valid;
             var operator;
             var con;
             var conArr = [];
             var conArrTemp;
             var result = [];
+            var order = option.order;
+            var resultType = option.type;
             var data = this.get( 'data' );
             var dataLen = data.length;
+            var field;
             var fields = this.get( 'fields' );
             var fieldHash = this.fieldHash;
             var i;
 
+            // 解析条件
             for( key in condition ){
 
                 conArrTemp = TableItem.analyseCondition( condition[ key ] );
@@ -456,10 +543,12 @@
                 }
             }
 
+            // 遍历所有数据项
             for( index = 0; index < dataLen; index++ ){
 
                 item = data[ index ];
 
+                // 如果item为undefined，则直接跳过
                 if( item === undefined ){
 
                     continue;
@@ -467,6 +556,7 @@
 
                 valid = true;
 
+                // 遍历条件，检查是否满足
                 for( i = 0; con = conArr[ i ]; i++ ){
 
                     operator = con.operator;
@@ -483,6 +573,19 @@
 
                 if( valid === true ){
 
+                    // 如果设置以obj的形式返回数据
+                    if( resultType === 'object' ){
+
+                        objItem = {};
+
+                        for( field in fieldHash ){
+
+                            objItem[ field ] = item[ fieldHash[ field ] ];
+                        }
+
+                        item = objItem;
+                    }
+
                     result.push( {
                         index: index,
                         data: item
@@ -493,10 +596,16 @@
             // 对结果进行排序
             if( typeof order === 'string' ){
 
-                var order = TableItem.analyseOrder( order );
+                order = TableItem.analyseOrder( order );
                 result = Util.sort( result, order.type, function( item ){
 
-                    return item[ fieldHash[ order.field ] ];
+                    if( resultType === 'object' ){
+
+                        return item[ order.field ];
+                    }
+                    else {
+                        return item[ fieldHash[ order.field ] ];
+                    }
                 });
             }
 

@@ -1,5 +1,6 @@
 (function(){
 
+    //todo 深入对query sort等api的测试
     describe( 'table表相关操作测试', function(){
 
         var Helper = window[ 'Helper' ];
@@ -348,6 +349,26 @@
 
                 expect( result.length ).toBe( 1 );
                 expect( result[ 0 ][ 0 ] ).toEqual( strData[ 3 ][ 0 ] );
+            });
+
+            runs( function(){
+
+                jasmine.log( '测试以对象的形式返回结果' );
+
+                var data = [ 1, 2, 3, 'obj' ];
+                var index;
+                var item;
+                var result;
+                var field;
+
+                t.insert( data );
+                result = t.query({ type: '= obj'}, { type: 'object' } );
+                item = result[ 0 ];
+
+                for( index = 0; field = fields[ index ]; index++ ){
+
+                    expect( item[ field ]).toEqual( data[ index ] );
+                }
             });
 
         });
