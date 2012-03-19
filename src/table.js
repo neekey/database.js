@@ -599,12 +599,15 @@
                 order = TableItem.analyseOrder( order );
                 result = Util.sort( result, order.type, function( item ){
 
+                    // 注意result列表的形式为{ data: .., index: }
+                    var data = item.data;
+
                     if( resultType === 'object' ){
 
-                        return item[ order.field ];
+                        return data[ order.field ];
                     }
                     else {
-                        return item[ fieldHash[ order.field ] ];
+                        return data[ fieldHash[ order.field ] ];
                     }
                 });
             }
