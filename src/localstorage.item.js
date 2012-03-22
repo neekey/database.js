@@ -41,26 +41,38 @@
          */
         fetch: function(){
 
-            var data = LS.getItem( this.key );
+            if( LS ){
 
-            if( data ){
+                var data = LS.getItem( this.key );
 
-                this.data = JSON.parse( data );
+                if( data ){
+
+                    this.data = JSON.parse( data );
+                }
             }
+
         },
 
         /**
          * 将data进行JSON字符串化，储存在localStorage中
          */
         save: function(){
-            LS.setItem( this.key, JSON.stringify( this.data ) );
+
+            if( LS ){
+
+                LS.setItem( this.key, JSON.stringify( this.data ) );
+            }
         },
 
         /**
          * 从localStorage中删除
          */
         remove: function(){
-            LS.removeItem( this.key );
+
+            if( LS ){
+
+                LS.removeItem( this.key );
+            }
         },
 
         /**
