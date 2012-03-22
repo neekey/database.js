@@ -12,7 +12,6 @@
      * @param key
      * @param data
      * @constructor
-     * //todo 添加纯内存版本
      */
     var Item = function( key, data ){
 
@@ -42,11 +41,13 @@
          */
         fetch: function(){
 
-            var data = LS.getItem( this.key );
+            if( LS ){
+                var data = LS.getItem( this.key );
 
-            if( data ){
+                if( data ){
 
-                this.data = JSON.parse( data );
+                    this.data = JSON.parse( data );
+                }
             }
         },
 
@@ -54,14 +55,22 @@
          * 将data进行JSON字符串化，储存在localStorage中
          */
         save: function(){
-            LS.setItem( this.key, JSON.stringify( this.data ) );
+
+            if( LS ){
+
+                LS.setItem( this.key, JSON.stringify( this.data ) );
+            }
         },
 
         /**
          * 从localStorage中删除
          */
         remove: function(){
-            LS.removeItem( this.key );
+
+            if( LS ){
+
+                LS.removeItem( this.key );
+            }
         },
 
         /**
